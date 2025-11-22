@@ -72,27 +72,38 @@ class LinkedInJobScraper:
         return text.strip()
     
     def _parse_posted_date(self, date_text: str) -> Optional[datetime]:
-        date_text = self._normalize_text(date_text.lower())
+        if not date_text:
+            return None
+            
+        date_text_normalized = self._normalize_text(date_text)
         
         try:
-            if 'just now' in date_text or 'today' in date_text:
+            if re.match(r'^\d{4}-\d{2}-\d{2}', date_text_normalized):
+                return datetime.fromisoformat(date_text_normalized.split('T')[0])
+        except (ValueError, AttributeError):
+            pass
+        
+        date_text_lower = date_text_normalized.lower()
+        
+        try:
+            if 'just now' in date_text_lower or 'today' in date_text_lower:
                 return datetime.now()
-            elif 'yesterday' in date_text:
+            elif 'yesterday' in date_text_lower:
                 return datetime.now() - timedelta(days=1)
-            elif 'hour' in date_text or 'hr' in date_text:
-                match = re.search(r'(\d+)', date_text)
+            elif 'hour' in date_text_lower or 'hr' in date_text_lower:
+                match = re.search(r'(\d+)', date_text_lower)
                 hours = int(match.group(1)) if match else 1
                 return datetime.now() - timedelta(hours=hours)
-            elif 'day' in date_text or 'days' in date_text:
-                match = re.search(r'(\d+)', date_text)
+            elif 'day' in date_text_lower or 'days' in date_text_lower:
+                match = re.search(r'(\d+)', date_text_lower)
                 days = int(match.group(1)) if match else 1
                 return datetime.now() - timedelta(days=days)
-            elif 'week' in date_text or 'weeks' in date_text:
-                match = re.search(r'(\d+)', date_text)
+            elif 'week' in date_text_lower or 'weeks' in date_text_lower:
+                match = re.search(r'(\d+)', date_text_lower)
                 weeks = int(match.group(1)) if match else 1
                 return datetime.now() - timedelta(weeks=weeks)
-            elif 'month' in date_text or 'months' in date_text:
-                match = re.search(r'(\d+)', date_text)
+            elif 'month' in date_text_lower or 'months' in date_text_lower:
+                match = re.search(r'(\d+)', date_text_lower)
                 months = int(match.group(1)) if match else 1
                 return datetime.now() - timedelta(days=months * 30)
         except:
@@ -229,8 +240,10 @@ class LinkedInJobScraper:
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
+        is_success = successful_pages > 0
+        
         result = {
-            'success': True,
+            'success': is_success,
             'location': location,
             'keyword': keyword or 'Any',
             'total_jobs': len(unique_jobs),
@@ -242,6 +255,9 @@ class LinkedInJobScraper:
             'jobs': unique_jobs
         }
         
-        logger.info(f"Scraping completed: {len(unique_jobs)} unique jobs found in {duration:.2f}s")
+        if is_success:
+            logger.info(f"Scraping completed: {len(unique_jobs)} unique jobs found in {duration:.2f}s")
+        else:
+            logger.error(f"Scraping failed: All {failed_pages} page(s) failed to fetch")
         
         return result
