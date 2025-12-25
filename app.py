@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from scraper import LinkedInJobScraper
+from multi_platform import JobScraper
 import logging
 
 app = Flask(__name__)
@@ -19,6 +20,7 @@ def home():
         'version': '1.0',
         'endpoints': {
             '/api/jobs': 'GET - Scrape jobs by location',
+            '/dice': 'GET - Scrape jobs from Dice.com',
             'parameters': {
                 'location': 'Required - Job location (e.g., Mumbai, Delhi, Bangalore)',
                 'keyword': 'Optional - Job keyword/title (e.g., Python Developer, Data Analyst)',
@@ -27,6 +29,7 @@ def home():
             }
         },
         'example': '/api/jobs?location=Mumbai&keyword=Python Developer&pages=5&days=7',
+        'dice_example': '/dice?keyword=Python Developer&location=Remote',
         'note': 'Please respect LinkedIn robots.txt and terms of service. Use responsibly.'
     })
 
@@ -77,6 +80,48 @@ def health_check():
         'status': 'healthy',
         'service': 'LinkedIn Job Scraper API'
     }), 200
+
+@app.route('/dice', methods=['GET'])
+def get_dice_jobs():
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        location = request.args.get('location', '').strip()
+        
+        if not keyword:
+            return jsonify({
+                'success': False,
+                'error': 'Keyword parameter is required',
+                'example': '/dice?keyword=Python Developer&location=Remote'
+            }), 400
+        
+        if not location:
+            location = 'Remote'
+        
+        # Build Dice.com URL
+        url = f"https://www.dice.com/jobs?q={keyword.replace(' ', '+')}&location={location.replace(' ', '+')}"
+        
+        logger.info(f"Dice API Request: keyword={keyword}, location={location}")
+        
+        # Scrape Dice jobs
+        scraper = JobScraper()
+        dice_jobs = scraper.dice_scrape(url)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'Dice',
+            'keyword': keyword,
+            'location': location,
+            'total_jobs': len(dice_jobs),
+            'jobs': dice_jobs
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Dice API Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

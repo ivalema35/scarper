@@ -1,0 +1,203 @@
+from requests import options
+import undetected_chromedriver as uc
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+import random
+from datetime import datetime, timedelta
+import re
+
+class JobScraper:
+    def __init__(self):
+        options = uc.ChromeOptions()
+     
+        # ---------------------------------------------------------
+        # ERROR FIX: Purana tarika hatayein aur naya use karein
+        # ---------------------------------------------------------
+        
+        # options.add_argument('--headless')  <-- YEH GALAT HAI (Crash karega)
+        
+        options.add_argument('--headless=new') # <-- SAHI TARIKA
+        options.add_argument('--window-size=1920,1080') # <-- ZAROORI HAI (Warna element not found aayega)
+        options.add_argument('--start-maximized')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+
+        # Driver Start
+        self.driver = uc.Chrome(options=options)
+
+
+
+    def parse_relative_date(self, date_text):
+        """
+        Converts '7d ago', 'Yesterday', 'Today' into '2024-05-20' format.
+        """
+        if not date_text:
+            return datetime.now().strftime("%Y-%m-%d")
+        
+        text = date_text.lower().strip()
+        current_date = datetime.now()
+
+        try:
+            # Case 1: "Today", "Just now", "Hours ago" -> Aaj ki date
+            if any(x in text for x in ["today", "just", "now", "hour", "h "]):
+                return current_date.strftime("%Y-%m-%d")
+
+            # Case 2: "Yesterday" -> Kal ki date
+            elif "yesterday" in text:
+                return (current_date - timedelta(days=1)).strftime("%Y-%m-%d")
+
+            # Case 3: "7d ago" ya "7 days ago" -> Subtract Days
+            elif "d" in text or "day" in text:
+                # Sirf number nikalo (regex se)
+                match = re.search(r'(\d+)', text)
+                if match:
+                    days_ago = int(match.group(1))
+                    new_date = current_date - timedelta(days=days_ago)
+                    return new_date.strftime("%Y-%m-%d")
+
+            # Case 4: "2w ago" ya "2 weeks ago" -> Subtract Weeks
+            elif "w" in text or "week" in text:
+                match = re.search(r'(\d+)', text)
+                if match:
+                    weeks_ago = int(match.group(1))
+                    new_date = current_date - timedelta(weeks=weeks_ago)
+                    return new_date.strftime("%Y-%m-%d")
+            
+            # Case 5: "1m ago" (Month) -> Approx 30 days minus
+            elif "m" in text or "mon" in text:
+                match = re.search(r'(\d+)', text)
+                if match:
+                    months_ago = int(match.group(1))
+                    new_date = current_date - timedelta(days=months_ago * 30)
+                    return new_date.strftime("%Y-%m-%d")
+
+        except Exception:
+            pass # Agar koi error aaye to original text hi return kar do ya aaj ki date
+
+        # Agar format samajh nahi aaya, to wahi text wapas bhej do (debugging ke liye)
+        return current_date.strftime("%Y-%m-%d")
+
+    def dice_scrape(self, url, ):
+        # print(f"--- Scraping {platform_name} ---")
+        self.driver.get(url)
+        card_selector="[data-testid='job-card']"    # Custom web component
+        title_selector="[data-testid='job-search-job-detail-link']"     # Job title link with ID starting with position-title
+        link_selector="[data-testid='job-search-job-card-link']"       # Same element for link
+        
+        # Human behavior mimic karne ke liye random sleep
+        time.sleep(random.uniform(8, 12))
+        
+        # Multiple scrolls for dynamic content loading
+        for i in range(3):
+            self.driver.execute_script(f"window.scrollTo(0, document.body.scrollHeight/{3-i});")
+            time.sleep(2)
+
+        jobs_data = []
+        
+        try:
+            # Try multiple selector strategies
+            selectors_to_try = [
+                card_selector,  # Original selector
+                "div[data-testid='search-result-card']",
+                "dhi-js-search-result-card",
+                "div.card",
+                "article",
+                "[class*='card']"
+            ]
+            
+            cards = []
+            for selector in selectors_to_try:
+                try:
+                    print(f"Trying selector: {selector}")
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    cards = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    if cards:
+                        print(f"✓ Found {len(cards)} cards with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not cards:
+                print("❌ No cards found with any selector. Trying generic approach...")
+                # Last resort: find all links and filter
+                all_links = self.driver.find_elements(By.TAG_NAME, "a")
+                print(f"Found {len(all_links)} total links on page")
+            
+            for card in cards:
+                try:
+                    title = card.find_element(By.CSS_SELECTOR, title_selector).text
+                    print(f"Extracting job: {title}")
+                    # Link nikalne ke liye check (kabhi href parent pe hota hai, kabhi child pe)
+                    try:
+                        link_elem = card.find_element(By.CSS_SELECTOR, link_selector)
+                        link = link_elem.get_attribute('href')
+                    except:
+                        # Agar direct link selector kaam na kare to poore card ka href try karein
+                        link = card.get_attribute('href')
+                    meta_elements = card.find_elements(By.CSS_SELECTOR, "p.text-sm.font-normal.text-zinc-600")
+                    print(f"Found {len(meta_elements)} meta elements")
+                    
+                    try:
+                        location = meta_elements[0].text
+                    except Exception as e:
+                        location = f"Location Not Found {e}"
+
+                    # 4. Posted Date (New)
+                    try:
+                        posted_date = self.parse_relative_date(meta_elements[-1].text)
+                    except Exception as e:
+                        posted_date = f"Date Not Found {e}"
+
+                    if title:
+                        job_info = {
+                        "Title": title,
+                        "Location": location,
+                        "Date": posted_date,
+                        "Link": link
+                    }
+                        jobs_data.append(job_info)
+                        print(f"Scraped: {title} | {location} | {posted_date}")
+                       
+
+                        
+                except Exception as e:
+                    continue # Agar ek card fail ho jaye to agle pe jao
+
+        except Exception as e:
+            print(f"Error on dice jobs : {e}")
+            
+        return jobs_data
+
+   
+# --- MAIN EXECUTION ---
+if __name__ == "__main__":
+    bot = JobScraper()
+    
+    # Example: Dice.com - Uses React/JavaScript to load jobs dynamically
+    dice_jobs = bot.dice_scrape(url="https://www.dice.com/jobs?q=ai+agetn+developer&location=surat",)
+    print(dice_jobs)    
+#         location_selector="[data-testid='search-result-location']",
+#         posted_date_selector="[data-testid='search-result-posted-date']"
+#     )
+#     dice_jobs_count = len(dice_jobs)
+#     print(dice_jobs)
+#     print(f"Total jobs found on Dice: {dice_jobs_count}")
+#     with open("dice_jobs.txt", "w", encoding="utf-8") as f:
+#         for job in dice_jobs:
+#             f.write(f"{job['Title']} - {job['Link']}\n")
+#     # Example: Glassdoor (Bahut strict hai, login maang sakta hai)
+#     # glassdoor_jobs = bot.scrape_platform(
+#     #     platform_name="Glassdoor",
+#     #     url="https://www.glassdoor.co.in/Job/software-tester-jobs-SRCH_KO0,15.htm",
+#     #     card_selector="li.react-job-listing", # Glassdoor list item
+#     #     title_selector="div.job-title",       # Job Title class
+#     #     link_selector="a.job-link"            # Link class
+#     # )
+
+#     bot.close()
+#     print("Scraping Completed")

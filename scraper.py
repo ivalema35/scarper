@@ -246,6 +246,7 @@ class LinkedInJobScraper:
             'success': is_success,
             'location': location,
             'keyword': keyword or 'Any',
+            'platform': 'LinkedIn',
             'total_jobs': len(unique_jobs),
             'successful_pages': successful_pages,
             'failed_pages': failed_pages,
