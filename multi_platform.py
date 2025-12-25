@@ -8,34 +8,38 @@ import random
 from datetime import datetime, timedelta
 import re
 import os
+import subprocess
 
 class JobScraper:
     def __init__(self):
         options = uc.ChromeOptions()
-     
-        # ---------------------------------------------------------
-        # ERROR FIX: Purana tarika hatayein aur naya use karein
-        # ---------------------------------------------------------
-        
-        # options.add_argument('--headless')  <-- YEH GALAT HAI (Crash karega)
-        
-        options.add_argument('--headless=new') # <-- SAHI TARIKA
-        options.add_argument('--window-size=1920,1080') # <-- ZAROORI HAI (Warna element not found aayega)
-        options.add_argument('--start-maximized')
-        options.add_argument('--disable-gpu')
+        options.add_argument('--headless=new')
+        options.add_argument('--window-size=1920,1080')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
 
-        # --- YE IMPORTANT FIX HAI ---
-        # Render par Chrome ka path check karo
-        chrome_path = "/opt/render/project/.render/chrome/opt/google/chrome/google-chrome"
-        
-        if os.path.exists(chrome_path):
-            options.binary_location = chrome_path
-        # ----------------------------
+        # --- PATH SETUP FOR RENDER ---
+        base_path = "/opt/render/project/.render/chrome"
+        chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
+        driver_binary = os.path.join(base_path, "chromedriver")
 
-        # Driver Start
-        self.driver = uc.Chrome(options=options)
+        # 1. Chrome Binary Path Check
+        if os.path.exists(chrome_binary):
+            print(f"Found Chrome binary at: {chrome_binary}")
+            options.binary_location = chrome_binary
+
+        # 2. Chromedriver Path Check & Launch
+        if os.path.exists(driver_binary):
+            print(f"Found Chromedriver at: {driver_binary}")
+            # Hum driver path explicit pass karenge taaki auto-download disable ho jaye
+            self.driver = uc.Chrome(
+                options=options, 
+                driver_executable_path=driver_binary, 
+                version_main=131  # Optional: major version hint
+            )
+        else:
+            # Fallback for Local Machine
+            self.driver = uc.Chrome(options=options)
 
 
 
