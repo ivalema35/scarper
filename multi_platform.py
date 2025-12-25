@@ -7,6 +7,7 @@ import time
 import random
 from datetime import datetime, timedelta
 import re
+import os
 
 class JobScraper:
     def __init__(self):
@@ -24,6 +25,14 @@ class JobScraper:
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+
+        # --- YE IMPORTANT FIX HAI ---
+        # Render par Chrome ka path check karo
+        chrome_path = "/opt/render/project/.render/chrome/opt/google/chrome/google-chrome"
+        
+        if os.path.exists(chrome_path):
+            options.binary_location = chrome_path
+        # ----------------------------
 
         # Driver Start
         self.driver = uc.Chrome(options=options)
