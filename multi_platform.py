@@ -17,28 +17,29 @@ class JobScraper:
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        
+        # --- NEW OPTIMIZATIONS (RAM Bachane ke liye) ---
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-application-cache')
+        options.add_argument('--disk-cache-size=0')
+        options.page_load_strategy = 'eager'  # <--- MAGIC LINE (Wait time aadha kar degi)
 
-        # --- PATH SETUP FOR RENDER ---
+        # Path Setup (Render wala code same rahega)
         base_path = "/opt/render/project/.render/chrome"
         chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
         driver_binary = os.path.join(base_path, "chromedriver")
 
-        # 1. Chrome Binary Path Check
         if os.path.exists(chrome_binary):
-            print(f"Found Chrome binary at: {chrome_binary}")
             options.binary_location = chrome_binary
 
-        # 2. Chromedriver Path Check & Launch
         if os.path.exists(driver_binary):
-            print(f"Found Chromedriver at: {driver_binary}")
-            # Hum driver path explicit pass karenge taaki auto-download disable ho jaye
             self.driver = uc.Chrome(
                 options=options, 
                 driver_executable_path=driver_binary, 
-                version_main=131  # Optional: major version hint
+                version_main=131
             )
         else:
-            # Fallback for Local Machine
             self.driver = uc.Chrome(options=options)
 
 
@@ -101,12 +102,12 @@ class JobScraper:
         link_selector="[data-testid='job-search-job-card-link']"       # Same element for link
         
         # Human behavior mimic karne ke liye random sleep
-        time.sleep(random.uniform(8, 12))
+        # time.sleep(random.uniform(8, 12))
         
         # Multiple scrolls for dynamic content loading
         for i in range(3):
             self.driver.execute_script(f"window.scrollTo(0, document.body.scrollHeight/{3-i});")
-            time.sleep(2)
+            time.sleep(1)
 
         jobs_data = []
         
@@ -183,6 +184,13 @@ class JobScraper:
 
         except Exception as e:
             print(f"Error on dice jobs : {e}")
+            
+        finally:
+            # --- YEH LINE BAHUT ZAROORI HAI ---
+            try:
+                self.driver.quit()
+            except:
+                pass    
             
         return jobs_data
 
