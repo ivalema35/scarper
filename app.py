@@ -15,22 +15,26 @@ logger = logging.getLogger(__name__)
 
 @app.route('/')
 def home():
-    return jsonify({
-        'message': 'LinkedIn Job Scraper API',
-        'version': '1.0',
+   return jsonify({
+        'message': 'Universal Job Scraper API (LinkedIn, Dice, Indeed)',
+        'version': '1.1',
         'endpoints': {
-            '/api/jobs': 'GET - Scrape jobs by location',
+            '/api/jobs': 'GET - Scrape jobs from LinkedIn',
             '/dice': 'GET - Scrape jobs from Dice.com',
+            '/indeed': 'GET - Scrape jobs from Indeed.com', # <-- New Added
             'parameters': {
-                'location': 'Required - Job location (e.g., Mumbai, Delhi, Bangalore)',
+                'location': 'Required - Job location (e.g., Mumbai, Remote, TX, USA)',
                 'keyword': 'Optional - Job keyword/title (e.g., Python Developer, Data Analyst)',
-                'pages': 'Optional - Number of pages to scrape (default: 3, max: 10)',
-                'days': 'Optional - Filter jobs from last N days (default: 7)'
+                'pages': 'Optional (LinkedIn only) - Number of pages to scrape',
+                'days': 'Optional (LinkedIn only) - Filter jobs from last N days'
             }
         },
-        'example': '/api/jobs?location=Mumbai&keyword=Python Developer&pages=5&days=7',
-        'dice_example': '/dice?keyword=Python Developer&location=Remote',
-        'note': 'Please respect LinkedIn robots.txt and terms of service. Use responsibly.'
+        'examples': {
+            'linkedin': '/api/jobs?location=Mumbai&keyword=Python Developer&pages=5',
+            'dice': '/dice?keyword=Python Developer&location=Remote',
+            'indeed': '/indeed?keyword=Data Analyst&location=Remote' # <-- New Added
+        },
+        'note': 'Please respect robots.txt and terms of service of respective platforms. Use responsibly.'
     })
 
 @app.route('/api/jobs', methods=['GET'])
@@ -123,5 +127,38 @@ def get_dice_jobs():
             'message': str(e)
         }), 500
 
+# --- NEW INDEED ROUTE ---
+@app.route('/indeed', methods=['GET'])
+def get_indeed_jobs():
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        location = request.args.get('location', '').strip()
+        
+        if not keyword:
+            return jsonify({'error': 'Keyword required'}), 400
+        
+        if not location:
+            location = 'Remote'
+        
+        # Indeed URL Format
+        # q = keyword, l = location
+        url = f"https://www.indeed.com/jobs?q={keyword.replace(' ', '+')}&l={location.replace(' ', '+')}"
+        
+        logger.info(f"Indeed Request: {url}")
+        
+        scraper = JobScraper()
+        jobs = scraper.indeed_scrape(url)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'Indeed',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Indeed API Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

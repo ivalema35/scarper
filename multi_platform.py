@@ -29,7 +29,7 @@ class JobScraper:
         options.add_experimental_option("prefs", prefs)
         
         # Standard Headless Options
-        options.add_argument('--headless=new')
+        # options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -209,14 +209,118 @@ class JobScraper:
             
         return jobs_data
 
+    def indeed_scrape(self, url):
+        print(f"--- Scraping Indeed: {url} ---")
+        jobs_data = []
+        try:
+            self.driver.get(url)
+            time.sleep(5) # Eager load wait
+
+            # 1. Close Popup if exists (Indeed Google Login Popup)
+            try:
+                close_btn = self.driver.find_element(By.CSS_SELECTOR, "button[aria-label='close']")
+                close_btn.click()
+                print("Popup closed")
+                time.sleep(1)
+            except:
+                pass
+
+            # 2. Wait for Job Cards
+            # Aapki file mein 'td.resultContent' main content holder hai
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "resultContent"))
+            )
+            
+            # Cards Selectors (Based on your HTML file)
+            # Indeed structure: li > div.cardOutline > div.job_seen_beacon
+            cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
+            print(f"Total Cards Found: {len(cards)}")
+
+            for card in cards:
+                try:
+                    # Title
+                    # HTML: <h2 class="jobTitle"><span>Python Dev</span></h2>
+                    title_elem = card.find_element(By.CSS_SELECTOR, "h2.jobTitle span[title]")
+                    title = title_elem.get_attribute("title")
+
+                    # Company
+                    # HTML: <span data-testid="company-name">Google</span>
+                    try:
+                        company = card.find_element(By.CSS_SELECTOR, "[data-testid='company-name']").text
+                    except:
+                        company = "Unknown"
+
+                    # Location
+                    # HTML: <div data-testid="text-location">Remote</div>
+                    try:
+                        location = card.find_element(By.CSS_SELECTOR, "[data-testid='text-location']").text
+                    except:
+                        location = "Unknown"
+
+                    # Date
+                    # HTML: <span data-testid="myJobsStateDate">Posted 3 days ago</span>
+                    try:
+                        date_text = card.find_element(By.CSS_SELECTOR, "[data-testid='myJobsStateDate']").text
+                        posted_date = self.parse_relative_date(date_text)
+                    except:
+                        posted_date = datetime.now().strftime("%Y-%m-%d")
+
+                    # Link
+                    try:
+                        link_elem = card.find_element(By.CSS_SELECTOR, "h2.jobTitle a")
+                        raw_link = link_elem.get_attribute("href")
+                        
+                        # Regex se 'jk' (Job Key) nikalenge
+                        # Pattern: jk= ke baad aane wale numbers/letters
+                        jk_match = re.search(r"jk=([a-zA-Z0-9]+)", raw_link)
+                        
+                        if jk_match:
+                            job_key = jk_match.group(1)
+                            # Clean Direct Link
+                            link = f"https://www.indeed.com/viewjob?jk={job_key}"
+                        else:
+                            # Agar jk nahi mila to fallback
+                            if raw_link.startswith("/"):
+                                link = f"https://www.indeed.com{raw_link}"
+                            else:
+                                link = raw_link
+                                
+                    except Exception as e:
+                        link = url # Fallback to search page
+
+                    # Data Store
+                    job = {
+                        "title": title,
+                        "company": company,
+                        "location": location,
+                        "date": posted_date,
+                        "link": link,
+                        "platform": "Indeed"
+                    }
+                    jobs_data.append(job)
+                    print(f"Scraped: {title} | {company}")
+
+                except Exception as e:
+                    continue
+
+        except Exception as e:
+            print(f"Indeed Error: {e}")
+        
+        finally:
+            try:
+                self.driver.quit()
+            except:
+                pass
+            
+        return jobs_data
    
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
     bot = JobScraper()
     
     # Example: Dice.com - Uses React/JavaScript to load jobs dynamically
-    dice_jobs = bot.dice_scrape(url="https://www.dice.com/jobs?q=ai+agetn+developer&location=surat",)
-    print(dice_jobs)    
+    indeed_jobs = bot.dice_scrape(url="https://www.dice.com/jobs?q=ai+agetn+developer&location=surat",)
+    print(indeed_jobs)    
 #         location_selector="[data-testid='search-result-location']",
 #         posted_date_selector="[data-testid='search-result-posted-date']"
 #     )
