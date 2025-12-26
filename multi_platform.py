@@ -12,49 +12,63 @@ import subprocess
 
 class JobScraper:
     def __init__(self):
+        # 1. Process Cleanup (Render ke liye zaroori)
+        try:
+            subprocess.run(['pkill', '-f', 'chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except:
+            pass
+            
         options = uc.ChromeOptions()
-       # --- SPEED BOOSTERS (Ye zaroori hai) ---
         
-        # 1. Page Load Strategy 'eager': 
-        # Yeh Chrome ko bolta hai: "HTML mil gaya? Bas kaafi hai. Images ka wait mat karo."
-        # Isse 60 second ka kaam 10 second mein ho jata hai.
-        options.page_load_strategy = 'eager' 
+        # --- KEY FIX 1: Normal Strategy (Indeed needs JS) ---
+        options.page_load_strategy = 'normal'
         
-        # 2. Block Images & Heavy Assets
-        # Images load karne mein RAM aur Data waste hota hai.
-        prefs = {
-            "profile.managed_default_content_settings.images": 2, # Block Images
-            "profile.default_content_setting_values.notifications": 2, # Block Notifications
-        }
-        options.add_experimental_option("prefs", prefs)
+        # --- KEY FIX 2: Real User Agent (Linux wala, kyunki Render Linux hai) ---
+        options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
         
-        # Standard Headless Options
-        options.add_argument('--headless=new')
+        # --- KEY FIX 3: Anti-Headless Flags ---
+        options.add_argument('--headless=new') # New headless mode is better
         options.add_argument('--window-size=1920,1080')
+        options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
-        options.add_argument('--disable-extensions')
-        options.add_argument('--dns-prefetch-disable') # Network speedup
+        
+        # --- KEY FIX 4: Hide Automation Flags ---
+        options.add_argument('--disable-blink-features=AutomationControlled') 
+        options.add_argument("--disable-popup-blocking")
+        
+        # Block Images (Speed)
+        prefs = {
+            "profile.managed_default_content_settings.images": 2,
+            "profile.default_content_setting_values.notifications": 2,
+            "intl.accept_languages": "en-US,en"
+        }
+        options.add_experimental_option("prefs", prefs)
 
-        # --- PATH SETUP (Render wala code same rahega) ---
+        # --- RENDER PATH SETUP ---
         base_path = "/opt/render/project/.render/chrome"
-        chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
-        driver_binary = os.path.join(base_path, "chromedriver")
-
-        if os.path.exists(chrome_binary):
-            options.binary_location = chrome_binary
-
-        if os.path.exists(driver_binary):
-            print("Using Custom Driver Path on Render")
+        
+        if os.path.exists(base_path):
+            print("--- Running on Render Server ---")
+            chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
+            driver_binary = os.path.join(base_path, "chromedriver")
+            
+            if os.path.exists(chrome_binary):
+                options.binary_location = chrome_binary
+            
             self.driver = uc.Chrome(
                 options=options, 
                 driver_executable_path=driver_binary, 
                 version_main=131
             )
         else:
-            print("Using Default Local Driver")
+            print("--- Running Local (Fallback) ---")
+            # Local par Headless test karne ke liye
             self.driver = uc.Chrome(options=options)
+            
+        # Viewport Fix
+        self.driver.set_window_size(1920, 1080)
 
 
 
