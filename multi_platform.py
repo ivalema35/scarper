@@ -12,33 +12,29 @@ import subprocess
 
 class JobScraper:
     def __init__(self):
-        # 1. Process Cleanup (Render ke liye zaroori)
         try:
+            # Render par zombie processes kill karein
             subprocess.run(['pkill', '-f', 'chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except:
-            pass
+        except: pass
             
         options = uc.ChromeOptions()
+        options.page_load_strategy = 'normal' # Indeed ke liye zaroori
         
-        # --- KEY FIX 1: Normal Strategy (Indeed needs JS) ---
-        options.page_load_strategy = 'normal'
-        
-        # --- KEY FIX 2: Real User Agent (Linux wala, kyunki Render Linux hai) ---
+        # --- FIX: LINUX USER AGENT (Render ke liye match) ---
+        # Windows agent hatakar Linux agent use karein taaki fingerprint match ho
         options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
         
-        # --- KEY FIX 3: Anti-Headless Flags ---
-        options.add_argument('--headless=new') # New headless mode is better
+        # --- HEADLESS OPTIONS ---
+        options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
-        
-        # --- KEY FIX 4: Hide Automation Flags ---
         options.add_argument('--disable-blink-features=AutomationControlled') 
         options.add_argument("--disable-popup-blocking")
         
-        # Block Images (Speed)
+        # Block Images
         prefs = {
             "profile.managed_default_content_settings.images": 2,
             "profile.default_content_setting_values.notifications": 2,
@@ -53,9 +49,7 @@ class JobScraper:
             print("--- Running on Render Server ---")
             chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
             driver_binary = os.path.join(base_path, "chromedriver")
-            
-            if os.path.exists(chrome_binary):
-                options.binary_location = chrome_binary
+            if os.path.exists(chrome_binary): options.binary_location = chrome_binary
             
             self.driver = uc.Chrome(
                 options=options, 
@@ -63,11 +57,9 @@ class JobScraper:
                 version_main=131
             )
         else:
-            print("--- Running Local (Fallback) ---")
-            # Local par Headless test karne ke liye
+            print("--- Running Local ---")
             self.driver = uc.Chrome(options=options)
             
-        # Viewport Fix
         self.driver.set_window_size(1920, 1080)
 
 
@@ -122,104 +114,87 @@ class JobScraper:
         # Agar format samajh nahi aaya, to wahi text wapas bhej do (debugging ke liye)
         return current_date.strftime("%Y-%m-%d")
 
-    def dice_scrape(self, url, ):
-        # print(f"--- Scraping {platform_name} ---")
-        self.driver.get(url)
-        time.sleep(5)
-        card_selector="[data-testid='job-card']"    # Custom web component
-        title_selector="[data-testid='job-search-job-detail-link']"     # Job title link with ID starting with position-title
-        link_selector="[data-testid='job-search-job-card-link']"       # Same element for link
-        
-        # Human behavior mimic karne ke liye random sleep
-        # time.sleep(random.uniform(8, 12))
-        
-        # Multiple scrolls for dynamic content loading
-        for i in range(3):
-            self.driver.execute_script(f"window.scrollTo(0, document.body.scrollHeight/{3-i});")
-            time.sleep(1)
-
+    def indeed_scrape(self, url):
+        print(f"--- Scraping Indeed: {url} ---")
         jobs_data = []
-        
         try:
-            # Try multiple selector strategies
-            selectors_to_try = [
-                card_selector,  # Original selector
-                "div[data-testid='search-result-card']",
-                "dhi-js-search-result-card",
-                "div.card",
-                "article",
-                "[class*='card']"
-            ]
+            self.driver.get(url)
             
-            cards = []
-            for selector in selectors_to_try:
+            # 1. INITIAL WAIT & DEBUG
+            print("Waiting 10s for page load...")
+            time.sleep(10)
+            
+            # Fake Scroll
+            self.driver.execute_script("window.scrollTo(0, 400);")
+            time.sleep(1)
+            
+            # DEBUG: Page Title check karein
+            page_title = self.driver.title
+            print(f"DEBUG: Page Title -> {page_title}")
+            
+            # Agar Cloudflare mila ("Just a moment..."), to Refresh karein
+            if "Just a moment" in page_title or "Access denied" in page_title:
+                print("⚠️ Cloudflare Detected! Refreshing page...")
+                self.driver.refresh()
+                time.sleep(15) # Refresh ke baad zyada wait
+            
+            # 2. CHECK FOR CARDS
+            cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
+            
+            # 3. RETRY LOGIC (Agar 0 jobs mili)
+            if len(cards) == 0:
+                print("⚠️ 0 Jobs Found. Retrying with explicit wait...")
                 try:
-                    print(f"Trying selector: {selector}")
-                    WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    WebDriverWait(self.driver, 20).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "resultContent"))
                     )
-                    cards = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    if cards:
-                        print(f"✓ Found {len(cards)} cards with selector: {selector}")
-                        break
+                    cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
                 except:
-                    continue
+                    # Agar fir bhi nahi mila, to HTML check karein
+                    print("❌ Still 0 jobs. Dumping Page Source (First 500 chars):")
+                    print(self.driver.page_source[:500]) # Ye logs mein dikhega ki kya error hai
             
-            if not cards:
-                print("❌ No cards found with any selector. Trying generic approach...")
-                # Last resort: find all links and filter
-                all_links = self.driver.find_elements(By.TAG_NAME, "a")
-                print(f"Found {len(all_links)} total links on page")
-            
+            print(f"Total Cards Found: {len(cards)}")
+
             for card in cards:
                 try:
-                    title = card.find_element(By.CSS_SELECTOR, title_selector).text
-                    print(f"Extracting job: {title}")
-                    # Link nikalne ke liye check (kabhi href parent pe hota hai, kabhi child pe)
-                    try:
-                        link_elem = card.find_element(By.CSS_SELECTOR, link_selector)
-                        link = link_elem.get_attribute('href')
-                    except:
-                        # Agar direct link selector kaam na kare to poore card ka href try karein
-                        link = card.get_attribute('href')
-                    meta_elements = card.find_elements(By.CSS_SELECTOR, "p.text-sm.font-normal.text-zinc-600")
-                    print(f"Found {len(meta_elements)} meta elements")
+                    # Extraction Logic
+                    title_elem = card.find_element(By.CSS_SELECTOR, "h2.jobTitle span[title]")
+                    title = title_elem.get_attribute("title")
                     
+                    try: company = card.find_element(By.CSS_SELECTOR, "[data-testid='company-name']").text
+                    except: company = "Unknown"
+
+                    try: location = card.find_element(By.CSS_SELECTOR, "[data-testid='text-location']").text
+                    except: location = "Unknown"
+
+                    try: 
+                        date_text = card.find_element(By.CSS_SELECTOR, "[data-testid='myJobsStateDate']").text
+                        posted_date = parse_relative_date(date_text)
+                    except: posted_date = datetime.now().strftime("%Y-%m-%d")
+
+                    # Link
                     try:
-                        location = meta_elements[0].text
-                    except Exception as e:
-                        location = f"Location Not Found {e}"
+                        link_elem = card.find_element(By.CSS_SELECTOR, "h2.jobTitle a")
+                        raw_link = link_elem.get_attribute("href")
+                        jk_match = re.search(r"jk=([a-zA-Z0-9]+)", raw_link)
+                        link = f"https://www.indeed.com/viewjob?jk={jk_match.group(1)}" if jk_match else raw_link
+                    except: link = url
 
-                    # 4. Posted Date (New)
-                    try:
-                        posted_date = self.parse_relative_date(meta_elements[-1].text)
-                    except Exception as e:
-                        posted_date = f"Date Not Found {e}"
+                    jobs_data.append({
+                        "title": title, "company": company, "location": location, 
+                        "date": posted_date, "link": link, "platform": "Indeed"
+                    })
 
-                    if title:
-                        job_info = {
-                        "Title": title,
-                        "Location": location,
-                        "Date": posted_date,
-                        "Link": link
-                    }
-                        jobs_data.append(job_info)
-                        print(f"Scraped: {title} | {location} | {posted_date}")
-                       
-
-                        
                 except Exception as e:
-                    continue # Agar ek card fail ho jaye to agle pe jao
+                    continue
 
         except Exception as e:
-            print(f"Error on dice jobs : {e}")
-            
+            print(f"Indeed Error: {e}")
+        
         finally:
-            # --- YEH LINE BAHUT ZAROORI HAI ---
-            try:
-                self.driver.quit()
-            except:
-                pass    
+            try: self.driver.quit()
+            except: pass
             
         return jobs_data
 
