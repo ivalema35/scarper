@@ -13,19 +13,31 @@ import subprocess
 class JobScraper:
     def __init__(self):
         options = uc.ChromeOptions()
+       # --- SPEED BOOSTERS (Ye zaroori hai) ---
+        
+        # 1. Page Load Strategy 'eager': 
+        # Yeh Chrome ko bolta hai: "HTML mil gaya? Bas kaafi hai. Images ka wait mat karo."
+        # Isse 60 second ka kaam 10 second mein ho jata hai.
+        options.page_load_strategy = 'eager' 
+        
+        # 2. Block Images & Heavy Assets
+        # Images load karne mein RAM aur Data waste hota hai.
+        prefs = {
+            "profile.managed_default_content_settings.images": 2, # Block Images
+            "profile.default_content_setting_values.notifications": 2, # Block Notifications
+        }
+        options.add_experimental_option("prefs", prefs)
+        
+        # Standard Headless Options
         options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        
-        # --- NEW OPTIMIZATIONS (RAM Bachane ke liye) ---
         options.add_argument('--disable-gpu')
         options.add_argument('--disable-extensions')
-        options.add_argument('--disable-application-cache')
-        options.add_argument('--disk-cache-size=0')
-        options.page_load_strategy = 'eager'  # <--- MAGIC LINE (Wait time aadha kar degi)
+        options.add_argument('--dns-prefetch-disable') # Network speedup
 
-        # Path Setup (Render wala code same rahega)
+        # --- PATH SETUP (Render wala code same rahega) ---
         base_path = "/opt/render/project/.render/chrome"
         chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
         driver_binary = os.path.join(base_path, "chromedriver")
@@ -34,12 +46,14 @@ class JobScraper:
             options.binary_location = chrome_binary
 
         if os.path.exists(driver_binary):
+            print("Using Custom Driver Path on Render")
             self.driver = uc.Chrome(
                 options=options, 
                 driver_executable_path=driver_binary, 
                 version_main=131
             )
         else:
+            print("Using Default Local Driver")
             self.driver = uc.Chrome(options=options)
 
 
@@ -97,6 +111,7 @@ class JobScraper:
     def dice_scrape(self, url, ):
         # print(f"--- Scraping {platform_name} ---")
         self.driver.get(url)
+        time.sleep(5)
         card_selector="[data-testid='job-card']"    # Custom web component
         title_selector="[data-testid='job-search-job-detail-link']"     # Job title link with ID starting with position-title
         link_selector="[data-testid='job-search-job-card-link']"       # Same element for link
