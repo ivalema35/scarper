@@ -20,42 +20,38 @@ class JobScraper:
             pass
             
         options = uc.ChromeOptions()
-        
-        # --- KEY FIX 1: Normal Strategy (Indeed needs JS) ---
         options.page_load_strategy = 'normal'
         
-        # --- FIX: STRICT LINUX AGENTS FOR RENDER ---
-        # Windows Agent Render par use karne se Mismatch hota hai
-        linux_agents = [
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.94 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.85 Safari/537.36",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0"
-        ]
-        
-        # Local Windows ke liye alag, Render ke liye alag
+        # --- 1. STRICT LINUX AGENT FOR RENDER ---
+        # User-Agent rotation hata kar ek solid Linux agent use kar rahe hain
         if platform.system() == "Windows":
              options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
         else:
-             agent = random.choice(linux_agents)
-             print(f"🎭 Using Linux Agent: {agent}")
-             options.add_argument(f"user-agent={agent}")
+             # Render ke liye yahi best hai
+             options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
-        # --- HEADLESS STEALTH ---
+        # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
         options.add_argument('--headless=new')
-        options.add_argument('--window-size=1920,1080') # Standard resolution
+        options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
         
-        # Anti-Bot Flags
+        # Hide Automation signals
         options.add_argument('--disable-blink-features=AutomationControlled') 
         options.add_argument("--disable-popup-blocking")
         options.add_argument("--disable-extensions")
         
+        # Advanced Stealth (Ye flag pakde jane se bachat hai)
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+        
         prefs = {
             "profile.managed_default_content_settings.images": 2,
             "profile.default_content_setting_values.notifications": 2,
+            "credentials_enable_service": False,
+            "profile.password_manager_enabled": False,
             "intl.accept_languages": "en-US,en"
         }
         options.add_experimental_option("prefs", prefs)
@@ -77,6 +73,16 @@ class JobScraper:
         else:
             print("--- Running Local ---")
             self.driver = uc.Chrome(options=options, use_subprocess=True)
+        
+        # --- 3. JAVASCRIPT INJECTION (Navigator Override) ---
+        # Browser ko jhoot bolne par majboor karna ki wo automate nahi ho raha
+        self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+            "source": """
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+            """
+        })
             
         self.driver.set_window_size(1920, 1080)
 
