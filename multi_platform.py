@@ -31,7 +31,7 @@ class JobScraper:
              options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
         # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
-        options.add_argument('--headless=new')
+        # options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
@@ -239,6 +239,69 @@ class JobScraper:
             
         return jobs_data
 
+    # --- ZIPRECRUITER SCRAPER (NEW) ---
+    def ziprecruiter_scrape(self, url):
+        print(f"--- Scraping ZipRecruiter: {url} ---")
+        jobs_data = []
+        try:
+            self.driver.get(url)
+            
+            # Thoda scroll karo taaki content load ho (bot behavior hide karne ke liye)
+            self.driver.execute_script("window.scrollTo(0, 300);")
+            time.sleep(5)
+            
+            # Cards Selectors
+            cards = self.driver.find_elements(By.CSS_SELECTOR, "li.job-listing")
+            
+            # --- DEBUG: AGAR 0 JOBS HAIN TO SCREENSHOT LO ---
+            if len(cards) == 0:
+                print("⚠️ 0 Jobs Found! Taking screenshot to check error...")
+                try:
+                    # Ye file aapke project folder me save hogi
+                    self.driver.save_screenshot("zip_debug_error.png")
+                    print("📸 Screenshot saved as 'zip_debug_error.png'. Check this file!")
+                    
+                    # HTML ka thoda hissa print karo log mein
+                    print("Page Source Snippet:", self.driver.page_source[:500])
+                except:
+                    pass
+
+            print(f"Total Cards Found: {len(cards)}")
+
+            for card in cards:
+                try:
+                    # Title & Link
+                    title_elem = card.find_element(By.CSS_SELECTOR, "a.jobList-title")
+                    title = title_elem.text.strip()
+                    link = title_elem.get_attribute("href")
+
+                    # Meta info
+                    meta_items = card.find_elements(By.CSS_SELECTOR, "ul.jobList-introMeta li")
+                    company = meta_items[0].text.strip() if len(meta_items) > 0 else "Unknown"
+                    location = meta_items[1].text.strip() if len(meta_items) > 1 else "Unknown"
+
+                    # Date
+                    try:
+                        date_text = card.find_element(By.CSS_SELECTOR, "div.jobList-date").text.strip()
+                        posted_date = parse_relative_date(date_text)
+                    except: 
+                        posted_date = datetime.now().strftime("%Y-%m-%d")
+
+                    jobs_data.append({
+                        "title": title, "company": company, "location": location, 
+                        "date": posted_date, "link": link, "platform": "ZipRecruiter"
+                    })
+                except: continue
+
+        except Exception as e:
+            print(f"ZipRecruiter Error: {e}")
+        
+        finally:
+            try: self.driver.quit()
+            except: pass
+            
+        return jobs_data
+    
     # --- INDEED SCRAPER (Improved) ---
     def indeed_scrape(self, url):
         print(f"--- Scraping Indeed: {url} ---")

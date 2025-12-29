@@ -159,6 +159,38 @@ def get_indeed_jobs():
     except Exception as e:
         logger.error(f"Indeed API Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
+
+@app.route('/ziprecruiter', methods=['GET'])
+def get_zip_jobs():
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        location = request.args.get('location', '').strip()
+        
+        if not keyword:
+            return jsonify({'error': 'Keyword required'}), 400
+        
+        if not location:
+            location = 'India' # Default to India for ZipRecruiter.in
+        
+        # URL Construction
+        # ZipRecruiter URL pattern: search?q=keyword&l=location
+        url = f"https://www.ziprecruiter.in/jobs/search?q={keyword.replace(' ', '+')}&l={location.replace(' ', '+')}"
+        
+        logger.info(f"ZipRecruiter Request: {url}")
+        
+        scraper = JobScraper()
+        jobs = scraper.ziprecruiter_scrape(url)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'ZipRecruiter',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"API Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+        
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
