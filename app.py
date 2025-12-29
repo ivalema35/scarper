@@ -227,7 +227,7 @@ def get_hiring_jobs():
 @app.route('/view-debug', methods=['GET'])
 def view_debug_image():
     # File ka naam wahi hona chahiye jo scraper save kar raha hai
-    filename = "zip_debug_error.png"
+    filename = "zip_cloudflare_local.png"
     
     if os.path.exists(filename):
         return send_file(filename, mimetype='image/png')
