@@ -219,6 +219,7 @@ class JobScraper:
                         time.sleep(1)
                     else:
                         print(f"⚠️ Error: Page par sirf {len(w_full_elements)} 'w-full' elements mile. 11th nahi mila.")
+                        self.driver.save_screenshot("zip_cloudflare_local.png")
 
                 except Exception as e:
                     print(f"⚠️ Location Interaction Error: {e}")
