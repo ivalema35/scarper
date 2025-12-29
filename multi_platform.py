@@ -31,7 +31,7 @@ class JobScraper:
              options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
         # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
-        # options.add_argument('--headless=new')
+        options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
