@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,send_file
+import os
 from flask_cors import CORS
 from scraper import LinkedInJobScraper
 from multi_platform import JobScraper
@@ -191,6 +192,17 @@ def get_zip_jobs():
     except Exception as e:
         logger.error(f"API Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-        
+
+# --- NEW DEBUG ROUTE (Screenshot dekhne ke liye) ---
+@app.route('/view-debug', methods=['GET'])
+def view_debug_image():
+    # File ka naam wahi hona chahiye jo scraper save kar raha hai
+    filename = "zip_debug_error.png"
+    
+    if os.path.exists(filename):
+        return send_file(filename, mimetype='image/png')
+    else:
+        return jsonify({"error": "Abhi tak koi Screenshot save nahi hua hai."}), 404
+       
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
