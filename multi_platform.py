@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import re
 import os
 import subprocess
+import platform
 
 class JobScraper:
     def __init__(self):
@@ -24,7 +25,29 @@ class JobScraper:
         options.page_load_strategy = 'normal'
         
         # --- KEY FIX 2: Real User Agent (Linux wala, kyunki Render Linux hai) ---
-        options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        # --- SMART USER AGENT SWITCHING (CRITICAL FIX) ---
+        system_os = platform.system()
+        
+        # --- ROTATING USER AGENTS ---
+        if system_os == "Windows":
+            # Windows Agents List
+            agents = [
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0"
+            ]
+        else:
+            # Linux Agents List (For Render)
+            agents = [
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0"
+            ]
+            
+        # Randomly select one
+        selected_agent = random.choice(agents)
+        print(f"Using User-Agent: {selected_agent}")
+        options.add_argument(f"user-agent={selected_agent}")
         
         # --- KEY FIX 3: Anti-Headless Flags ---
         options.add_argument('--headless=new') # New headless mode is better
@@ -223,96 +246,88 @@ class JobScraper:
             
         return jobs_data
 
+    # --- INDEED SCRAPER (Improved) ---
     def indeed_scrape(self, url):
         print(f"--- Scraping Indeed: {url} ---")
         jobs_data = []
         try:
             self.driver.get(url)
-            time.sleep(5) # Eager load wait
-
-            # 1. Close Popup if exists (Indeed Google Login Popup)
-            try:
-                close_btn = self.driver.find_element(By.CSS_SELECTOR, "button[aria-label='close']")
-                close_btn.click()
-                print("Popup closed")
-                time.sleep(1)
-            except:
-                pass
-
-            # 2. Wait for Job Cards
-            # Aapki file mein 'td.resultContent' main content holder hai
-            WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "resultContent"))
-            )
             
-            # Cards Selectors (Based on your HTML file)
-            # Indeed structure: li > div.cardOutline > div.job_seen_beacon
+            # 1. INITIAL WAIT & DEBUG
+            print("Waiting 10s for page load...")
+            time.sleep(10)
+            
+            # Fake Scroll
+            self.driver.execute_script("window.scrollTo(0, 400);")
+            time.sleep(1)
+            
+           # Check Title immediately
+            page_title = self.driver.title
+            print(f"DEBUG: Page Title -> {page_title}")
+            
+            # Agar 'Blocked' ya 'Just a moment' hai
+            if "Blocked" in page_title or "Just a moment" in page_title or "Access denied" in page_title:
+                print("⚠️ Blocked/Challenge Detected! Trying Refresh Strategy...")
+                
+                # Trick: Thoda scroll karke refresh maaro
+                self.driver.execute_script("window.scrollTo(0, 300);")
+                time.sleep(2)
+                self.driver.refresh()
+                print("Refreshed. Waiting 15s...")
+                time.sleep(15)
+                print(f"DEBUG: New Title -> {self.driver.title}")
+            
+            # Fake Scroll
+            self.driver.execute_script("window.scrollTo(0, 400);")
+            time.sleep(1)
+
+            # 2. CHECK FOR CARDS
             cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
+            
+            # 3. RETRY LOGIC (Agar 0 jobs mili)
+            if len(cards) == 0:
+                print("⚠️ 0 Jobs Found. Retrying with explicit wait...")
+                try:
+                    WebDriverWait(self.driver, 20).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, "resultContent"))
+                    )
+                    cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
+                except:
+                    # Agar fir bhi nahi mila, to HTML check karein
+                    print("❌ Still 0 jobs. Dumping Page Source (First 500 chars):")
+                    print(self.driver.page_source[:500]) # Ye logs mein dikhega ki kya error hai
+            
             print(f"Total Cards Found: {len(cards)}")
 
             for card in cards:
                 try:
-                    # Title
-                    # HTML: <h2 class="jobTitle"><span>Python Dev</span></h2>
+                    # Extraction Logic
                     title_elem = card.find_element(By.CSS_SELECTOR, "h2.jobTitle span[title]")
                     title = title_elem.get_attribute("title")
+                    
+                    try: company = card.find_element(By.CSS_SELECTOR, "[data-testid='company-name']").text
+                    except: company = "Unknown"
 
-                    # Company
-                    # HTML: <span data-testid="company-name">Google</span>
-                    try:
-                        company = card.find_element(By.CSS_SELECTOR, "[data-testid='company-name']").text
-                    except:
-                        company = "Unknown"
+                    try: location = card.find_element(By.CSS_SELECTOR, "[data-testid='text-location']").text
+                    except: location = "Unknown"
 
-                    # Location
-                    # HTML: <div data-testid="text-location">Remote</div>
-                    try:
-                        location = card.find_element(By.CSS_SELECTOR, "[data-testid='text-location']").text
-                    except:
-                        location = "Unknown"
-
-                    # Date
-                    # HTML: <span data-testid="myJobsStateDate">Posted 3 days ago</span>
-                    try:
+                    try: 
                         date_text = card.find_element(By.CSS_SELECTOR, "[data-testid='myJobsStateDate']").text
-                        posted_date = self.parse_relative_date(date_text)
-                    except:
-                        posted_date = datetime.now().strftime("%Y-%m-%d")
+                        posted_date = parse_relative_date(date_text)
+                    except: posted_date = datetime.now().strftime("%Y-%m-%d")
 
                     # Link
                     try:
                         link_elem = card.find_element(By.CSS_SELECTOR, "h2.jobTitle a")
                         raw_link = link_elem.get_attribute("href")
-                        
-                        # Regex se 'jk' (Job Key) nikalenge
-                        # Pattern: jk= ke baad aane wale numbers/letters
                         jk_match = re.search(r"jk=([a-zA-Z0-9]+)", raw_link)
-                        
-                        if jk_match:
-                            job_key = jk_match.group(1)
-                            # Clean Direct Link
-                            link = f"https://www.indeed.com/viewjob?jk={job_key}"
-                        else:
-                            # Agar jk nahi mila to fallback
-                            if raw_link.startswith("/"):
-                                link = f"https://www.indeed.com{raw_link}"
-                            else:
-                                link = raw_link
-                                
-                    except Exception as e:
-                        link = url # Fallback to search page
+                        link = f"https://www.indeed.com/viewjob?jk={jk_match.group(1)}" if jk_match else raw_link
+                    except: link = url
 
-                    # Data Store
-                    job = {
-                        "title": title,
-                        "company": company,
-                        "location": location,
-                        "date": posted_date,
-                        "link": link,
-                        "platform": "Indeed"
-                    }
-                    jobs_data.append(job)
-                    print(f"Scraped: {title} | {company}")
+                    jobs_data.append({
+                        "title": title, "company": company, "location": location, 
+                        "date": posted_date, "link": link, "platform": "Indeed"
+                    })
 
                 except Exception as e:
                     continue
@@ -321,10 +336,8 @@ class JobScraper:
             print(f"Indeed Error: {e}")
         
         finally:
-            try:
-                self.driver.quit()
-            except:
-                pass
+            try: self.driver.quit()
+            except: pass
             
         return jobs_data
    
