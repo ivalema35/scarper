@@ -11,6 +11,8 @@ import re
 import os
 import subprocess
 import platform
+import json
+import urllib.parse
 
 class JobScraper:
     def __init__(self):
@@ -32,7 +34,7 @@ class JobScraper:
              options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
         # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
-        # options.add_argument('--headless=new')
+        options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
@@ -139,60 +141,96 @@ class JobScraper:
         # Agar format samajh nahi aaya, to wahi text wapas bhej do (debugging ke liye)
         return current_date.strftime("%Y-%m-%d")
 
-   # --- HIRING.CAFE SCRAPER (Interaction Mode) ---
-    def hiringcafe_scrape(self, url, keyword="", location=""):
-        print(f"--- Scraping Hiring.cafe: {url} ---")
+  # --- HIRING.CAFE SCRAPER (Index Strategy - 11th Element) ---
+    def hiringcafe_scrape(self, base_url, keyword="", location=""):
+        print(f"--- Scraping Hiring.cafe: {base_url} ---")
         jobs_data = []
         try:
-            self.driver.get("https://hiring.cafe/") # Base URL open karein
+            self.driver.get("https://hiring.cafe/")
             
-            print("Waiting for UI to load...")
+            print("Waiting 5s for UI...")
             time.sleep(5)
             
-            # --- INTERACTION: TYPE KEYWORD ---
+            # --- 1. KEYWORD TYPE KARO ---
             try:
-                print(f"Typing Keyword: {keyword}")
-                # Search input dhundo (Placeholder ya ID se)
+                print(f"✍️ Typing Keyword: {keyword}")
                 search_box = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder*='Search'], input[id*='search']"))
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='text']"))
                 )
                 search_box.click()
-                # Purana text saaf karo (Ctrl+A -> Delete reliable hota hai React me)
+                time.sleep(0.5)
                 search_box.send_keys(Keys.CONTROL + "a")
                 search_box.send_keys(Keys.DELETE)
-                # Keyword type karo
                 search_box.send_keys(keyword)
-                time.sleep(1)
+                time.sleep(0.5)
                 search_box.send_keys(Keys.ENTER)
-                time.sleep(3)
+                time.sleep(1)
             except Exception as e:
-                print(f"Search Box Error: {e}")
+                print(f"⚠️ Keyword Error: {e}")
 
-            # --- INTERACTION: TYPE LOCATION ---
-            # Location box thoda tricky ho sakta hai, try karte hain
+            # --- 2. LOCATION (CLICK 11th .w-full ELEMENT) ---
             if location:
                 try:
-                    print(f"Typing Location: {location}")
-                    # Location input dhundne ki koshish (Placeholder ya common attributes)
-                    loc_box = self.driver.find_element(By.CSS_SELECTOR, "input[placeholder*='Location'], input[placeholder*='City'], input[placeholder*='Remote']")
+                    print(f"📍 Interaction with Location Box: {location}")
                     
-                    loc_box.click()
-                    loc_box.send_keys(Keys.CONTROL + "a")
-                    loc_box.send_keys(Keys.DELETE)
-                    loc_box.send_keys(location)
-                    time.sleep(1)
-                    loc_box.send_keys(Keys.ENTER)
-                    time.sleep(4) # Results update hone ka wait
-                except:
-                    print("Location box not found or hard to interact, scraping mixed results...")
+                    # Logic: User ne confirm kiya hai ki Location Box 11th element hai 'w-full' class ka.
+                    # Python mein index 0 se shuru hota hai, isliye 11th = Index 10
+                    
+                    print("Finding all 'w-full' elements...")
+                    w_full_elements = self.driver.find_elements(By.CLASS_NAME, "w-full")
+                    
+                    if len(w_full_elements) >= 11:
+                        target_box = w_full_elements[10] # 11th Element
+                        
+                        print("Clicking the 11th 'w-full' element...")
+                        # Scroll to view (Safe side)
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target_box)
+                        time.sleep(0.5)
+                        
+                        # Click
+                        try:
+                            target_box.click()
+                        except:
+                            self.driver.execute_script("arguments[0].click();", target_box)
+                            
+                        time.sleep(2) # Modal animation waitss
+                        print("Modal should be open now.")
+                        
+                        # --- MODAL INPUT LOGIC ---
+                        # Click hone ke baad Modal khul gaya hoga
+                        modal_input = self.driver.switch_to.active_element
+                        
+                        # Fallback search agar focus nahi hua
+                        if "input" not in modal_input.tag_name:
+                             # Modal ke andar input dhundo
+                             modal_input = self.driver.find_element(By.CLASS_NAME, "css-1jqq78o-placeholder")
 
-            # --- MASTER STRATEGY: Find Links with '/viewjob/' ---
-            # Ab job results load ho chuke honge
+                        print(f"Typing '{location}' inside Modal...")
+                        modal_input.send_keys(Keys.CONTROL + "a")
+                        modal_input.send_keys(Keys.DELETE)
+                        modal_input.send_keys(location)
+                        
+                        time.sleep(2.5) # Suggestions wait
+                        
+                        modal_input.send_keys(Keys.ARROW_DOWN)
+                        time.sleep(0.5)
+                        modal_input.send_keys(Keys.ENTER)
+                        print("Location Selected!")
+                        time.sleep(1)
+                    else:
+                        print(f"⚠️ Error: Page par sirf {len(w_full_elements)} 'w-full' elements mile. 11th nahi mila.")
+
+                except Exception as e:
+                    print(f"⚠️ Location Interaction Error: {e}")
+
+            # --- 3. FETCH RESULTS ---
+            print("Scrolling to load jobs...")
             self.driver.execute_script("window.scrollTo(0, 1000);")
-            time.sleep(3)
+            time.sleep(2)
             self.driver.execute_script("window.scrollTo(0, 3000);")
             time.sleep(3)
-            
+
+            # --- 4. DATA EXTRACTION ---
             job_links = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/viewjob/')]")
             print(f"Found {len(job_links)} valid job links.")
             
@@ -201,12 +239,12 @@ class JobScraper:
             for link_elem in job_links:
                 try:
                     href = link_elem.get_attribute("href")
+                    if "/viewjob/" not in href: continue
                     job_id = href.split("/viewjob/")[-1].split("?")[0]
                     
                     if job_id in unique_ids: continue
                     unique_ids.add(job_id)
 
-                    # Card Text Extraction (Parent Methsod)
                     card = link_elem.find_element(By.XPATH, "./../../..") 
                     text = card.text.strip()
                     lines = [line.strip() for line in text.split('\n') if line.strip()]
@@ -214,16 +252,21 @@ class JobScraper:
                     if len(lines) < 2:
                         title = link_elem.text.strip()
                         company = "Hiring.cafe Job"
+                        location_text = location if location else "Remote"
                     else:
                         title = lines[0]
                         company = "Unknown"
                         if len(lines) > 1:
-                            if "$" not in lines[1] and "Remote" not in lines[1]:
-                                company = lines[1]
+                            line2 = lines[1]
+                            if "$" not in line2 and "Remote" not in line2 and "India" not in line2:
+                                company = line2
                         
                         location_text = "Remote"
                         for line in lines:
                             if any(x in line.lower() for x in ["remote", "india", "usa", "hybrid", "onsite"]):
+                                location_text = line
+                                break
+                            if location and location.lower() in line.lower():
                                 location_text = line
                                 break
 
