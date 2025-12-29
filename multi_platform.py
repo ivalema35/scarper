@@ -246,44 +246,54 @@ class JobScraper:
         try:
             self.driver.get(url)
             
-            # Thoda scroll karo taaki content load ho (bot behavior hide karne ke liye)
-            self.driver.execute_script("window.scrollTo(0, 300);")
-            time.sleep(5)
+            # --- CLOUDFLARE BYPASS LOGIC ---
+            print("Checking for Cloudflare Challenge...")
+            time.sleep(12) # 12 seconds wait zaroori hai challenge ke liye
             
-            # Cards Selectors
+            # Debug Title
+            title = self.driver.title
+            print(f"DEBUG: Current Page Title -> {title}")
+            
+            if "Just a moment" in title or "Verifying" in title:
+                print("⚠️ Cloudflare Detected! Simulating Human Behavior...")
+                
+                # FIX: Python ka random number pehle calculate karo, fir JS ko bhejo
+                random_scroll = random.randint(200, 600)
+                self.driver.execute_script(f"window.scrollTo(0, {random_scroll});")
+                time.sleep(5)
+                
+                # Check again
+                if "Just a moment" in self.driver.title:
+                    print("Still stuck. Sending a Refresh...")
+                    self.driver.refresh()
+                    time.sleep(15)
+
+            # Slow scroll to trigger lazy loading
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 3);")
+            time.sleep(3)
+
+            # Cards Extraction
             cards = self.driver.find_elements(By.CSS_SELECTOR, "li.job-listing")
             
-            # --- DEBUG: AGAR 0 JOBS HAIN TO SCREENSHOT LO ---
             if len(cards) == 0:
-                print("⚠️ 0 Jobs Found! Taking screenshot to check error...")
-                try:
-                    # Ye file aapke project folder me save hogi
-                    self.driver.save_screenshot("zip_debug_error.png")
-                    print("📸 Screenshot saved as 'zip_debug_error.png'. Check this file!")
-                    
-                    # HTML ka thoda hissa print karo log mein
-                    print("Page Source Snippet:", self.driver.page_source[:500])
-                except:
-                    pass
-
+                print("⚠️ 0 Jobs. Saving screenshot for IV Infotech debugging...")
+                self.driver.save_screenshot("zip_cloudflare_local.png")
+            
             print(f"Total Cards Found: {len(cards)}")
 
             for card in cards:
                 try:
-                    # Title & Link
                     title_elem = card.find_element(By.CSS_SELECTOR, "a.jobList-title")
                     title = title_elem.text.strip()
                     link = title_elem.get_attribute("href")
 
-                    # Meta info
                     meta_items = card.find_elements(By.CSS_SELECTOR, "ul.jobList-introMeta li")
                     company = meta_items[0].text.strip() if len(meta_items) > 0 else "Unknown"
                     location = meta_items[1].text.strip() if len(meta_items) > 1 else "Unknown"
 
-                    # Date
                     try:
                         date_text = card.find_element(By.CSS_SELECTOR, "div.jobList-date").text.strip()
-                        posted_date = parse_relative_date(date_text)
+                        posted_date = self.parse_relative_date(date_text)
                     except: 
                         posted_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -295,7 +305,6 @@ class JobScraper:
 
         except Exception as e:
             print(f"ZipRecruiter Error: {e}")
-        
         finally:
             try: self.driver.quit()
             except: pass

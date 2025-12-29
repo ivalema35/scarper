@@ -175,7 +175,7 @@ def get_zip_jobs():
         
         # URL Construction
         # ZipRecruiter URL pattern: search?q=keyword&l=location
-        url = f"https://www.ziprecruiter.in/jobs/search?q={keyword.replace(' ', '+')}&l={location.replace(' ', '+')}"
+        url = f"https://www.ziprecruiter.com/jobs/search?q={keyword.replace(' ', '+')}&l={location.replace(' ', '+')}"
         
         logger.info(f"ZipRecruiter Request: {url}")
         
