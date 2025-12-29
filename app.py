@@ -193,6 +193,36 @@ def get_zip_jobs():
         logger.error(f"API Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# --- HIRING CAFE ROUTE ---
+@app.route('/hiringcafe', methods=['GET'])
+def get_hiring_jobs():
+    try:
+        keyword = request.args.get('keyword', '').strip()
+        location = request.args.get('location', '').strip()
+        
+        if not keyword:
+            return jsonify({'error': 'Keyword required'}), 400
+        
+        # Base URL (Scraper ab khud navigate karega)
+        base_url = "https://hiring.cafe/"
+        
+        logger.info(f"HiringCafe Search: Keyword='{keyword}', Location='{location}'")
+        
+        scraper = JobScraper()
+        # Hum function mein direct arguments bhej rahe hain
+        jobs = scraper.hiringcafe_scrape(base_url, keyword=keyword, location=location)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'Hiring.cafe',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"API Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
 # --- NEW DEBUG ROUTE (Screenshot dekhne ke liye) ---
 @app.route('/view-debug', methods=['GET'])
 def view_debug_image():

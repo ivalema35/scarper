@@ -3,6 +3,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 import time
 import random
 from datetime import datetime, timedelta
@@ -31,7 +32,7 @@ class JobScraper:
              options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
         # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
-        options.add_argument('--headless=new')
+        # options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
@@ -138,6 +139,114 @@ class JobScraper:
         # Agar format samajh nahi aaya, to wahi text wapas bhej do (debugging ke liye)
         return current_date.strftime("%Y-%m-%d")
 
+   # --- HIRING.CAFE SCRAPER (Interaction Mode) ---
+    def hiringcafe_scrape(self, url, keyword="", location=""):
+        print(f"--- Scraping Hiring.cafe: {url} ---")
+        jobs_data = []
+        try:
+            self.driver.get("https://hiring.cafe/") # Base URL open karein
+            
+            print("Waiting for UI to load...")
+            time.sleep(5)
+            
+            # --- INTERACTION: TYPE KEYWORD ---
+            try:
+                print(f"Typing Keyword: {keyword}")
+                # Search input dhundo (Placeholder ya ID se)
+                search_box = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder*='Search'], input[id*='search']"))
+                )
+                search_box.click()
+                # Purana text saaf karo (Ctrl+A -> Delete reliable hota hai React me)
+                search_box.send_keys(Keys.CONTROL + "a")
+                search_box.send_keys(Keys.DELETE)
+                # Keyword type karo
+                search_box.send_keys(keyword)
+                time.sleep(1)
+                search_box.send_keys(Keys.ENTER)
+                time.sleep(3)
+            except Exception as e:
+                print(f"Search Box Error: {e}")
+
+            # --- INTERACTION: TYPE LOCATION ---
+            # Location box thoda tricky ho sakta hai, try karte hain
+            if location:
+                try:
+                    print(f"Typing Location: {location}")
+                    # Location input dhundne ki koshish (Placeholder ya common attributes)
+                    loc_box = self.driver.find_element(By.CSS_SELECTOR, "input[placeholder*='Location'], input[placeholder*='City'], input[placeholder*='Remote']")
+                    
+                    loc_box.click()
+                    loc_box.send_keys(Keys.CONTROL + "a")
+                    loc_box.send_keys(Keys.DELETE)
+                    loc_box.send_keys(location)
+                    time.sleep(1)
+                    loc_box.send_keys(Keys.ENTER)
+                    time.sleep(4) # Results update hone ka wait
+                except:
+                    print("Location box not found or hard to interact, scraping mixed results...")
+
+            # --- MASTER STRATEGY: Find Links with '/viewjob/' ---
+            # Ab job results load ho chuke honge
+            self.driver.execute_script("window.scrollTo(0, 1000);")
+            time.sleep(3)
+            self.driver.execute_script("window.scrollTo(0, 3000);")
+            time.sleep(3)
+            
+            job_links = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/viewjob/')]")
+            print(f"Found {len(job_links)} valid job links.")
+            
+            unique_ids = set()
+
+            for link_elem in job_links:
+                try:
+                    href = link_elem.get_attribute("href")
+                    job_id = href.split("/viewjob/")[-1].split("?")[0]
+                    
+                    if job_id in unique_ids: continue
+                    unique_ids.add(job_id)
+
+                    # Card Text Extraction (Parent Methsod)
+                    card = link_elem.find_element(By.XPATH, "./../../..") 
+                    text = card.text.strip()
+                    lines = [line.strip() for line in text.split('\n') if line.strip()]
+
+                    if len(lines) < 2:
+                        title = link_elem.text.strip()
+                        company = "Hiring.cafe Job"
+                    else:
+                        title = lines[0]
+                        company = "Unknown"
+                        if len(lines) > 1:
+                            if "$" not in lines[1] and "Remote" not in lines[1]:
+                                company = lines[1]
+                        
+                        location_text = "Remote"
+                        for line in lines:
+                            if any(x in line.lower() for x in ["remote", "india", "usa", "hybrid", "onsite"]):
+                                location_text = line
+                                break
+
+                    posted_date = datetime.now().strftime("%Y-%m-%d")
+
+                    jobs_data.append({
+                        "title": title,
+                        "company": company,
+                        "location": location_text,
+                        "date": posted_date,
+                        "link": href,
+                        "platform": "Hiring.cafe"
+                    })
+                except: continue
+
+        except Exception as e:
+            print(f"Hiring.cafe Error: {e}")
+        finally:
+            try: self.driver.quit()
+            except: pass
+            
+        return jobs_data
+    
     def dice_scrape(self, url, ):
         # print(f"--- Scraping {platform_name} ---")
         self.driver.get(url)
