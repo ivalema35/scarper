@@ -24,44 +24,35 @@ class JobScraper:
         # --- KEY FIX 1: Normal Strategy (Indeed needs JS) ---
         options.page_load_strategy = 'normal'
         
-        # --- KEY FIX 2: Real User Agent (Linux wala, kyunki Render Linux hai) ---
-        # --- SMART USER AGENT SWITCHING (CRITICAL FIX) ---
-        system_os = platform.system()
+        # --- FIX: STRICT LINUX AGENTS FOR RENDER ---
+        # Windows Agent Render par use karne se Mismatch hota hai
+        linux_agents = [
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6261.94 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.85 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0"
+        ]
         
-        # --- ROTATING USER AGENTS ---
-        if system_os == "Windows":
-            # Windows Agents List
-            agents = [
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0"
-            ]
+        # Local Windows ke liye alag, Render ke liye alag
+        if platform.system() == "Windows":
+             options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
         else:
-            # Linux Agents List (For Render)
-            agents = [
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0"
-            ]
-            
-        # Randomly select one
-        selected_agent = random.choice(agents)
-        print(f"Using User-Agent: {selected_agent}")
-        options.add_argument(f"user-agent={selected_agent}")
-        
-        # --- KEY FIX 3: Anti-Headless Flags ---
-        options.add_argument('--headless=new') # New headless mode is better
-        options.add_argument('--window-size=1920,1080')
+             agent = random.choice(linux_agents)
+             print(f"🎭 Using Linux Agent: {agent}")
+             options.add_argument(f"user-agent={agent}")
+
+        # --- HEADLESS STEALTH ---
+        options.add_argument('--headless=new')
+        options.add_argument('--window-size=1920,1080') # Standard resolution
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
         
-        # --- KEY FIX 4: Hide Automation Flags ---
+        # Anti-Bot Flags
         options.add_argument('--disable-blink-features=AutomationControlled') 
         options.add_argument("--disable-popup-blocking")
+        options.add_argument("--disable-extensions")
         
-        # Block Images (Speed)
         prefs = {
             "profile.managed_default_content_settings.images": 2,
             "profile.default_content_setting_values.notifications": 2,
@@ -69,16 +60,14 @@ class JobScraper:
         }
         options.add_experimental_option("prefs", prefs)
 
-        # --- RENDER PATH SETUP ---
+        # --- RENDER PATH ---
         base_path = "/opt/render/project/.render/chrome"
         
         if os.path.exists(base_path):
             print("--- Running on Render Server ---")
             chrome_binary = os.path.join(base_path, "opt/google/chrome/google-chrome")
             driver_binary = os.path.join(base_path, "chromedriver")
-            
-            if os.path.exists(chrome_binary):
-                options.binary_location = chrome_binary
+            if os.path.exists(chrome_binary): options.binary_location = chrome_binary
             
             self.driver = uc.Chrome(
                 options=options, 
@@ -86,11 +75,9 @@ class JobScraper:
                 version_main=131
             )
         else:
-            print("--- Running Local (Fallback) ---")
-            # Local par Headless test karne ke liye
-            self.driver = uc.Chrome(options=options)
+            print("--- Running Local ---")
+            self.driver = uc.Chrome(options=options, use_subprocess=True)
             
-        # Viewport Fix
         self.driver.set_window_size(1920, 1080)
 
 
@@ -251,35 +238,35 @@ class JobScraper:
         print(f"--- Scraping Indeed: {url} ---")
         jobs_data = []
         try:
+            # 1. Clean Slate
+            self.driver.delete_all_cookies()
             self.driver.get(url)
             
-            # 1. INITIAL WAIT & DEBUG
-            print("Waiting 10s for page load...")
-            time.sleep(10)
+            # 2. Wait for Cloudflare Check
+            print("Waiting 15s for Cloudflare/Page Load...")
+            time.sleep(15)
             
-            # Fake Scroll
-            self.driver.execute_script("window.scrollTo(0, 400);")
-            time.sleep(1)
+            # 3. Check if Blocked
+            title = self.driver.title
+            print(f"DEBUG: Initial Title -> {title}")
             
-           # Check Title immediately
-            page_title = self.driver.title
-            print(f"DEBUG: Page Title -> {page_title}")
-            
-            # Agar 'Blocked' ya 'Just a moment' hai
-            if "Blocked" in page_title or "Just a moment" in page_title or "Access denied" in page_title:
-                print("⚠️ Blocked/Challenge Detected! Trying Refresh Strategy...")
+            if "Blocked" in title or "Just a moment" in title or "Access denied" in title:
+                print("⚠️ Block Detected! Attempting Bypass...")
                 
-                # Trick: Thoda scroll karke refresh maaro
-                self.driver.execute_script("window.scrollTo(0, 300);")
+                # Action 1: Mouse Move
+                self.driver.execute_script("window.scrollTo(0, 500);")
                 time.sleep(2)
+                
+                # Action 2: Hard Refresh
                 self.driver.refresh()
-                print("Refreshed. Waiting 15s...")
-                time.sleep(15)
+                print("Refreshed. Waiting 20s...")
+                time.sleep(20) # Cloudflare solve hone ka time do
+                
                 print(f"DEBUG: New Title -> {self.driver.title}")
-            
-            # Fake Scroll
-            self.driver.execute_script("window.scrollTo(0, 400);")
-            time.sleep(1)
+
+            # 4. Scroll to trigger lazy load
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3);")
+            time.sleep(2)
 
             # 2. CHECK FOR CARDS
             cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
@@ -313,7 +300,7 @@ class JobScraper:
 
                     try: 
                         date_text = card.find_element(By.CSS_SELECTOR, "[data-testid='myJobsStateDate']").text
-                        posted_date = parse_relative_date(date_text)
+                        posted_date = self.parse_relative_date(date_text)
                     except: posted_date = datetime.now().strftime("%Y-%m-%d")
 
                     # Link
