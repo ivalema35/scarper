@@ -44,8 +44,8 @@ class JobScraper:
         options.add_argument("--disable-extensions")
         
         # Advanced Stealth (Ye flag pakde jane se bachat hai)
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
+        # options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # options.add_experimental_option('useAutomationExtension', False)
         
         prefs = {
             "profile.managed_default_content_settings.images": 2,
