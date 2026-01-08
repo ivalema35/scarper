@@ -78,7 +78,26 @@ def get_jobs():
             'error': 'Internal server error',
             'message': str(e)
         }), 500
-
+    
+@app.route('/linkedin', methods=['GET'])
+def get_linkedin_jobs():
+    try:
+        keyword = request.args.get('keyword', 'Data Analyst').strip()
+        location = request.args.get('location', 'USA').strip()
+        
+        logger.info(f"LinkedIn Selenium Search: {keyword} in {location}")
+        scraper = JobScraper()
+        jobs = scraper.linkedin_scrape(keyword, location)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'LinkedIn',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({
@@ -171,16 +190,16 @@ def get_zip_jobs():
             return jsonify({'error': 'Keyword required'}), 400
         
         if not location:
-            location = 'India' # Default to India for ZipRecruiter.in
+            location = 'USA' # .com default location
         
-        # URL Construction
-        # ZipRecruiter URL pattern: search?q=keyword&l=location
-        url = f"https://www.ziprecruiter.com/jobs/search?q={keyword.replace(' ', '+')}&l={location.replace(' ', '+')}"
+        # --- ZIPRECRUITER .COM URL FORMAT ---
+        # Note: .com uses 'search' and 'location' parameters
+        url = f"https://www.ziprecruiter.com/jobs-search?search={keyword}&location={location}"
         
-        logger.info(f"ZipRecruiter Request: {url}")
+        logger.info(f"ZipRecruiter (.com) Request: {url}")
         
         scraper = JobScraper()
-        jobs = scraper.ziprecruiter_scrape(url)
+        jobs = scraper.ziprecruiter_scrape(url,keyword,location) # Updated function call karega
         
         return jsonify({
             'success': True,
@@ -222,7 +241,68 @@ def get_hiring_jobs():
     except Exception as e:
         logger.error(f"API Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
+
+@app.route('/glassdoor', methods=['GET'])
+def get_glassdoor_jobs():
+    try:
+        keyword = request.args.get('keyword', 'Data Analyst').strip()
+        location = request.args.get('location', '').strip()
+        
+        logger.info(f"Glassdoor Search: {keyword} in {location}")
+        scraper = JobScraper(user_profile=False)  # Fresh Profile Mode
+        jobs = scraper.glassdoor_scrape(keyword, location)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'Glassdoor',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/simplyhired', methods=['GET'])
+def get_simplyhired():
+    try:
+        keyword = request.args.get('keyword', 'Data Analyst').strip()
+        location = request.args.get('location', '').strip()
+        
+        logger.info(f"SimplyHired Request: {keyword} in {location}")
+        
+        # Fresh Profile Mode
+        scraper = JobScraper(user_profile=False) 
+        jobs = scraper.simplyhired_scrape(keyword, location)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'SimplyHired',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500    
+
+@app.route('/builtin', methods=['GET'])
+def get_builtin():
+    try:
+        keyword = request.args.get('keyword', 'Data Analyst').strip()
+        location = request.args.get('location', '').strip()
+        
+        logger.info(f"BuiltIn Request: {keyword} in {location}")
+        
+        # Fresh Profile Mode
+        scraper = JobScraper(user_profile=False) 
+        jobs = scraper.builtin_scrape(keyword, location)
+        
+        return jsonify({
+            'success': True,
+            'platform': 'BuiltIn',
+            'total_jobs': len(jobs),
+            'jobs': jobs
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500    
+        
 # --- NEW DEBUG ROUTE (Screenshot dekhne ke liye) ---
 @app.route('/view-debug', methods=['GET'])
 def view_debug_image():
@@ -233,6 +313,38 @@ def view_debug_image():
         return send_file(filename, mimetype='image/png')
     else:
         return jsonify({"error": "Abhi tak koi Screenshot save nahi hua hai."}), 404
-       
+
+# --- CareerBuilder Route ---
+@app.route('/careerbuilder', methods=['GET'])
+def get_careerbuilder():
+    try:
+        # 1. Inputs lijiye n8n ya user se
+        keyword = request.args.get('keyword', 'AI Developer').strip()
+        location = request.args.get('location', 'USA').strip()
+        
+        print(f"🚀 CareerBuilder Request received: {keyword} in {location}")
+        
+        # 2. Scraper initialize kijiye (Fresh Profile Mode)
+        # CareerBuilder ko saved profile ki zaroorat nahi hai
+        scraper = JobScraper(user_profile=False) 
+        
+        # 3. Scraping function call kijiye
+        jobs = scraper.careerbuilder_scrape(keyword, location)
+        
+        # 4. JSON Response return kijiye
+        return jsonify({
+            "success": True,
+            "platform": "CareerBuilder",
+            "total_jobs": len(jobs),
+            "jobs": jobs
+        }), 200
+
+    except Exception as e:
+        print(f"❌ CareerBuilder Route Error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+           
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

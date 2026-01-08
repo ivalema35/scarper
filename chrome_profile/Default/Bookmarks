@@ -1,0 +1,37 @@
+{
+   "checksum": "1e54fbb25d92a354f7aeaf576726429e",
+   "roots": {
+      "bookmark_bar": {
+         "children": [  ],
+         "date_added": "13411809153012421",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Bookmarks bar",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13411809153012421",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Other bookmarks",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13411809153012421",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Mobile bookmarks",
+         "type": "folder"
+      }
+   },
+   "sync_metadata": "CqgBCocBCIiBAhKAASAAkgFsCmoKDmNocm9tZV9zeW5jX2JtEgU1MSFibRoSCTP+8mpiRwYAETP+8mpiRwYAIjQJlsXeamJHBgAQAxkt2roOmQfPgyABKhw1MSFibS9mZDo5MTYzNzIzNTU5NDY4ODkzMTYxKX4F9mpiRwYA6gEMCJ7f3coGEIi42LkDEgAqGHBtdUs5bXhER2lKYWRib3MzUkxCQ0E9PUgDEqsBCAESpgEKHHl4Si82ZnZrZWNyN2twNUVRekI0dFdMcGRiRT0STlo6QURxdEFaemYrTmdNOHR0UmpmdnpvT2JIZ1ZsOGIwN0cvWm1sbVNDK3Mvcnc1Z3Nnd3duNnNvRXUrT3JpaVIrZ1dLcTl0emlKbWY1NhgAIAAoADCWi/vWpuyRAzgAQABKHGFSQ1dMZ2hGOWI1SW5xS0lEdnVKL2p2UWtGYz1aAGUAAAAAEsMBCAISvgEKHFljU1RvbnZFU1B3cUNzNEwyY3JWaHY2OEw5OD0SZlo6QURxdEFaeVp2RlRnbmR0d1h2VFA0d3dxK3FtM1FlbEpJU3VlbVVjMEZ3L2xhbXJaNENTdXlaVjVkTS91b2FoYUR5ZzJxUE5jM1NrSFp6Ull3dVRVOUZ5ZFM0QzN5V3JXNlE9PRgAIAAoADCWi/vWpuyRAzgAQABKHG9QVmtod0JSYlY2NUtDV1IyK0lPTkhXb091OD1aAGUAAAAAEsMBCAMSvgEKHG5qZ0R1ODhlQ3J2WHA4NnBEN2ZIR2NxRnA4OD0SZlo6QURxdEFadythU01zRVRlYlhjVmhndzBQL2xWTDhia3pzMkJuMlBtZTZwZWgzNUlxWnFNUzFLcFZQc1pXa1BUcUdieXZsWlNpV0dmUmtiUWkrS2piVTBsM0JMNlNPTXcvWmc9PRgAIAAoADCWi/vWpuyRAzgAQABKHHl6TkIwMWNuNTRBN2NSVTB1VCsvUGdtVHRVbz1aAGUAAAAAMAE4AA==",
+   "version": 1
+}

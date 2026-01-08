@@ -1,0 +1,6 @@
+2026/01/07-09:37:07.841 13b8 Reusing MANIFEST E:\job_applier\LinkedInJobScraper\chrome_profile\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/01/07-09:37:07.848 13b8 Recovering log #20
+2026/01/07-09:37:07.866 13b8 Reusing old log E:\job_applier\LinkedInJobScraper\chrome_profile\Default\Sync Data\LevelDB/000020.log 
+2026/01/07-09:42:08.378 13b8 Level-0 table #24: started
+2026/01/07-09:42:08.408 13b8 Level-0 table #24: 99486 bytes OK
+2026/01/07-09:42:08.410 13b8 Delete type=0 #20
