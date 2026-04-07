@@ -89,7 +89,7 @@ class JobScraper:
             )
         else:
             print("--- Running Local ---")
-            self.driver = uc.Chrome(options=options, use_subprocess=True)
+            self.driver = uc.Chrome(options=options, use_subprocess=True, version_main=146)
         
         # --- 3. JAVASCRIPT INJECTION (Navigator Override) ---
         # Browser ko jhoot bolne par majboor karna ki wo automate nahi ho raha
@@ -174,7 +174,7 @@ class JobScraper:
             cards = self.driver.find_elements(By.CSS_SELECTOR, ".base-card, .job-search-card")
             print(f"LinkedIn: Found {len(cards)} cards")
 
-            for card in cards[:10]: # Batch limit
+            for card in cards[:5]: # Batch limit
                 try:
                     # Basic Info
                     title = card.find_element(By.CSS_SELECTOR, ".base-search-card__title").text.strip()
@@ -436,7 +436,7 @@ class JobScraper:
 
             print(f"Filtered Results: Found {len(temp_jobs)} jobs from the last 2 weeks.")
 
-            for job in temp_jobs[:15]:
+            for job in temp_jobs[:5]:
                 try:
                     self.driver.get(job['link'])
                     time.sleep(5) # JD load hone ka wait
@@ -537,7 +537,7 @@ class JobScraper:
                 all_links = self.driver.find_elements(By.TAG_NAME, "a")
                 print(f"Found {len(all_links)} total links on page")
             
-            for card in cards:
+            for card in cards[0:10]:
                 try:
                     title = card.find_element(By.CSS_SELECTOR, title_selector).text
                     print(f"Extracting job: {title}")
@@ -646,7 +646,7 @@ class JobScraper:
             # --- 3. VISIT EACH LINK FOR DESCRIPTION ---
             # Ab hum har link par jayenge aur JD nikalenge
             print(f"Extracting descriptions for {len(temp_jobs)} jobs...")
-            for job in temp_jobs[:15]: # Starting ke 15 jobs (Safety ke liye)
+            for job in temp_jobs[:5]: # Starting ke 15 jobs (Safety ke liye)
                 try:
                     self.driver.get(job['link'])
                     time.sleep(5) # JD load hone ka wait
@@ -712,7 +712,7 @@ class JobScraper:
 
             cards = self.driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon, td.resultContent")
             temp_jobs = []
-            for card in cards:
+            for card in cards[0:5]:
                 try:
                     # --- 1. GET UNIQUE ID (JK) FIRST ---
                     jk_id = ""
@@ -847,7 +847,7 @@ class JobScraper:
             cards = self.driver.find_elements(By.CLASS_NAME, "jobCard")
             print(f"Glassdoor: Found {len(cards)} job cards.")
             temp_jobs = []
-            for card in cards[:10]: # Batch limit for n8n efficiency
+            for card in cards[:5]: # Batch limit for n8n efficiency
 
                 try:
                     print(card.text)
@@ -951,7 +951,7 @@ class JobScraper:
 
             print(f"SimplyHired: Found {len(cards)} cards")
             
-            for card in cards[:10]:
+            for card in cards[:5]:
                 try:
                     # --- BASIC INFO ---
                     title_el = card.find_element(By.CSS_SELECTOR, "[data-testid='searchSerpJobTitle'] a")
@@ -1036,7 +1036,7 @@ class JobScraper:
 
             print(f"BuiltIn: Found {len(cards)} cards for location: {location}")
 
-            for card in cards[:10]:
+            for card in cards[:5]:
                 try:
                     # --- Title & Direct Link ---
                     # Selector: data-id="job-card-title"
@@ -1131,7 +1131,7 @@ class JobScraper:
 
             print(f"CareerBuilder: Found {len(cards)} cards")
 
-            for card in cards[:10]:
+            for card in cards[:5]:
                 try:
                     # --- Title & Direct Link ---
                     title_el = card.find_element(By.CSS_SELECTOR, "h2.job-title a")
