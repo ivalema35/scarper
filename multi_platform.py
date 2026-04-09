@@ -55,7 +55,6 @@ class JobScraper:
         options.add_argument(f"user-agent={random_ua}")
 
         # --- 2. CONFIGURATION & STABILITY FLAGS ---
-        # options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
@@ -75,6 +74,9 @@ class JobScraper:
         options.add_argument('--disable-web-security')
         options.add_argument('--allow-running-insecure-content')
         # options.add_argument("--disable-extensions")
+
+        # FIX 1: Modern headless mode to prevent GUI crashes on RDP/Windows Server
+        options.add_argument('--headless=new')
         
         # Advanced Stealth (Ye flag pakde jane se bachat hai)
         # options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -89,7 +91,7 @@ class JobScraper:
         }
         options.add_experimental_option("prefs", prefs)
 
-        # --- RENDER PATH ---
+        # --- RENDER PATH & INITIALIZATION ---
         base_path = "/opt/render/project/.render/chrome"
         
         if os.path.exists(base_path):
@@ -101,14 +103,14 @@ class JobScraper:
             self.driver = uc.Chrome(
                 options=options, 
                 driver_executable_path=driver_binary, 
-                version_main=131
+                version_main=131 # Keeping Render server version intact
             )
         else:
-            print("--- Running Local ---")
-            self.driver = uc.Chrome(options=options, use_subprocess=True, version_main=146)
+            print("--- Running on Windows / Local ---")
+            # FIX 2: Removed version_main=146 so it auto-detects the installed Chrome version
+            self.driver = uc.Chrome(options=options, use_subprocess=True)
         
-        # --- 3. JAVASCRIPT INJECTION (Navigator Override) ---
-        # Browser ko jhoot bolne par majboor karna ki wo automate nahi ho raha
+        # --- 3. JAVASCRIPT INJECTION ---
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": """
                 Object.defineProperty(navigator, 'webdriver', {
