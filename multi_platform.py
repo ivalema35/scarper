@@ -75,7 +75,7 @@ class JobScraper:
         options.add_argument('--allow-running-insecure-content')
         # options.add_argument("--disable-extensions")
 
-        # FIX 1: Commenting out manual headless mode as it causes 'no such window' crashes with uc on Windows
+        # FIX 1: Modern headless mode for Windows RDP server stability
         # options.add_argument('--headless=new')
         
         # Advanced Stealth (Ye flag pakde jane se bachat hai)
@@ -107,8 +107,8 @@ class JobScraper:
             )
         else:
             print("--- Running on Windows / Local ---")
-            # FIX: Explicitly pinning version 146 to prevent downloading v147 beta
-            self.driver = uc.Chrome(options=options, use_subprocess=True, version_main=146)
+            # FIX: Explicitly pinning version 147 to match installed Chrome
+            self.driver = uc.Chrome(options=options, use_subprocess=True, version_main=147)
         
         # --- 3. JAVASCRIPT INJECTION ---
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
