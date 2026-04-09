@@ -249,7 +249,7 @@ def get_glassdoor_jobs():
         location = request.args.get('location', '').strip()
         
         logger.info(f"Glassdoor Search: {keyword} in {location}")
-        scraper = JobScraper(user_profile=True)  # Persistent Profile Mode
+        scraper = JobScraper(user_profile=False)  # Fresh Profile Mode
         jobs = scraper.glassdoor_scrape(keyword, location)
         
         return jsonify({
@@ -270,7 +270,7 @@ def get_simplyhired():
         logger.info(f"SimplyHired Request: {keyword} in {location}")
         
         # Fresh Profile Mode
-        scraper = JobScraper(user_profile=True) 
+        scraper = JobScraper(user_profile=False) 
         jobs = scraper.simplyhired_scrape(keyword, location)
         
         return jsonify({
@@ -291,7 +291,7 @@ def get_builtin():
         logger.info(f"BuiltIn Request: {keyword} in {location}")
         
         # Fresh Profile Mode
-        scraper = JobScraper(user_profile=True) 
+        scraper = JobScraper(user_profile=False) 
         jobs = scraper.builtin_scrape(keyword, location)
         
         return jsonify({
@@ -324,8 +324,9 @@ def get_careerbuilder():
         
         print(f"🚀 CareerBuilder Request received: {keyword} in {location}")
         
-        # 2. Scraper initialize kijiye (Persistent Profile Mode)
-        scraper = JobScraper(user_profile=True) 
+        # 2. Scraper initialize kijiye (Fresh Profile Mode)
+        # CareerBuilder ko saved profile ki zaroorat nahi hai
+        scraper = JobScraper(user_profile=False) 
         
         # 3. Scraping function call kijiye
         jobs = scraper.careerbuilder_scrape(keyword, location)

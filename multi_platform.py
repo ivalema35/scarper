@@ -14,23 +14,12 @@ import platform
 import json
 import urllib.parse
 import tempfile
-from fake_useragent import UserAgent
 
 class JobScraper:
     def __init__(self,user_profile=False):
-        # 1. Process Cleanup (Cross-Platform)
+        # 1. Process Cleanup (Render ke liye zaroori)
         try:
-            import subprocess
-            import platform
-            
-            if platform.system() == "Windows":
-                print("hello")
-                # Force kill chrome and chromedriver on Windows
-                subprocess.run(['taskkill', '/F', '/IM', 'chrome.exe', '/T'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                subprocess.run(['taskkill', '/F', '/IM', 'chromedriver.exe', '/T'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            else:
-                # Linux/Mac cleanup
-                subprocess.run(['pkill', '-f', 'chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(['pkill', '-f', 'chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except:
             pass
        
@@ -50,34 +39,26 @@ class JobScraper:
             options.add_argument(f"--user-data-dir={temp_dir}")    
     
         
-        # --- 1. DYNAMIC USER AGENT ---
-        ua = UserAgent(platforms='pc')
-        random_ua = ua.random
-        options.add_argument(f"user-agent={random_ua}")
+        # --- 1. STRICT LINUX AGENT FOR RENDER ---
+        # User-Agent rotation hata kar ek solid Linux agent use kar rahe hain
+        if platform.system() == "Windows":
+             options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        else:
+             # Render ke liye yahi best hai
+             options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
-        # --- 2. CONFIGURATION & STABILITY FLAGS ---
+        # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
+        # options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        
-        # Only disable GPU if not on Windows for rendering stability
-        if platform.system() != "Windows":
-            options.add_argument('--disable-gpu')
+        options.add_argument('--disable-gpu')
         
         # Hide Automation signals
         options.add_argument('--disable-blink-features=AutomationControlled') 
         options.add_argument("--disable-popup-blocking")
-        
-        # New stability flags
-        options.add_argument('--disable-infobars')
-        options.add_argument('--ignore-certificate-errors')
-        options.add_argument('--disable-web-security')
-        options.add_argument('--allow-running-insecure-content')
         # options.add_argument("--disable-extensions")
-
-        # FIX 1: Modern headless mode for Windows RDP server stability
-        # options.add_argument('--headless=new')
         
         # Advanced Stealth (Ye flag pakde jane se bachat hai)
         # options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -92,7 +73,7 @@ class JobScraper:
         }
         options.add_experimental_option("prefs", prefs)
 
-        # --- RENDER PATH & INITIALIZATION ---
+        # --- RENDER PATH ---
         base_path = "/opt/render/project/.render/chrome"
         
         if os.path.exists(base_path):
@@ -104,14 +85,14 @@ class JobScraper:
             self.driver = uc.Chrome(
                 options=options, 
                 driver_executable_path=driver_binary, 
-                version_main=131 # Keeping Render server version intact
+                version_main=131
             )
         else:
-            print("--- Running on Windows / Local ---")
-            # FIX: Explicitly pinning version 147 to match installed Chrome
-            self.driver = uc.Chrome(options=options, use_subprocess=True, version_main=147)
+            print("--- Running Local ---")
+            self.driver = uc.Chrome(options=options, use_subprocess=True, version_main=146)
         
-        # --- 3. JAVASCRIPT INJECTION ---
+        # --- 3. JAVASCRIPT INJECTION (Navigator Override) ---
+        # Browser ko jhoot bolne par majboor karna ki wo automate nahi ho raha
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": """
                 Object.defineProperty(navigator, 'webdriver', {
