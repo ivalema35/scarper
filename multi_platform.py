@@ -24,6 +24,7 @@ class JobScraper:
             import platform
             
             if platform.system() == "Windows":
+                print("hello")
                 # Force kill chrome and chromedriver on Windows
                 subprocess.run(['taskkill', '/F', '/IM', 'chrome.exe', '/T'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 subprocess.run(['taskkill', '/F', '/IM', 'chromedriver.exe', '/T'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -35,7 +36,7 @@ class JobScraper:
        
 
         options = uc.ChromeOptions()
-        # options.page_load_strategy = 'eager'
+        options.page_load_strategy = 'eager'
         if user_profile:
             # 🔥 Wahi saved profile use karna
             # 2. PORTABLE PROFILE PATH SETUP (Current Directory)
