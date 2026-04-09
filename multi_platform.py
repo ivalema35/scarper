@@ -14,6 +14,7 @@ import platform
 import json
 import urllib.parse
 import tempfile
+from fake_useragent import UserAgent
 
 class JobScraper:
     def __init__(self,user_profile=False):
@@ -39,25 +40,31 @@ class JobScraper:
             options.add_argument(f"--user-data-dir={temp_dir}")    
     
         
-        # --- 1. STRICT LINUX AGENT FOR RENDER ---
-        # User-Agent rotation hata kar ek solid Linux agent use kar rahe hain
-        if platform.system() == "Windows":
-             options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        else:
-             # Render ke liye yahi best hai
-             options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        # --- 1. DYNAMIC USER AGENT ---
+        ua = UserAgent(platforms='pc')
+        random_ua = ua.random
+        options.add_argument(f"user-agent={random_ua}")
 
-        # --- 2. STEALTH ARGUMENTS (Sabse Zaroori) ---
+        # --- 2. CONFIGURATION & STABILITY FLAGS ---
         # options.add_argument('--headless=new')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--start-maximized')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
+        
+        # Only disable GPU if not on Windows for rendering stability
+        if platform.system() != "Windows":
+            options.add_argument('--disable-gpu')
         
         # Hide Automation signals
         options.add_argument('--disable-blink-features=AutomationControlled') 
         options.add_argument("--disable-popup-blocking")
+        
+        # New stability flags
+        options.add_argument('--disable-infobars')
+        options.add_argument('--ignore-certificate-errors')
+        options.add_argument('--disable-web-security')
+        options.add_argument('--allow-running-insecure-content')
         # options.add_argument("--disable-extensions")
         
         # Advanced Stealth (Ye flag pakde jane se bachat hai)
