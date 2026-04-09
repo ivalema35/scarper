@@ -18,9 +18,18 @@ from fake_useragent import UserAgent
 
 class JobScraper:
     def __init__(self,user_profile=False):
-        # 1. Process Cleanup (Render ke liye zaroori)
+        # 1. Process Cleanup (Cross-Platform)
         try:
-            subprocess.run(['pkill', '-f', 'chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            import subprocess
+            import platform
+            
+            if platform.system() == "Windows":
+                # Force kill chrome and chromedriver on Windows
+                subprocess.run(['taskkill', '/F', '/IM', 'chrome.exe', '/T'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.run(['taskkill', '/F', '/IM', 'chromedriver.exe', '/T'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                # Linux/Mac cleanup
+                subprocess.run(['pkill', '-f', 'chrome'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except:
             pass
        
